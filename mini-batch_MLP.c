@@ -3,17 +3,48 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
-#define ROWS 3
-#define COLS 2  
-#define N 4
-#define BATCH 32
-#define EPOCHS 100
-#define Lr 0.1
+#define ROWS 557
+#define COLS 784  // 28x28
+#define N 64
+#define BATCH 16
+#define EPOCHS 50
+#define Lr 0.001
 #define EPSILON 1e-7f
+
+
+
+/*
+ DATA : [https://www.kaggle.com/c/dogs-vs-cats/data]
+*/
+
+float X[ROWS][COLS];
+float y[ROWS];
+
+void load_data() {
+  FILE* fx = fopen("X_data.txt", "r");
+  FILE* fy = fopen("y_data.txt", "r");
+
+  if (!fx || !fy) {
+    perror("Failed to open data files.");
+    exit(1);
+  }
+
+  for (int i = 0; i < ROWS; i++)
+    for (int j = 0; j < COLS; j++) fscanf(fx, "%f,", &X[i][j]);
+
+  for (int i = 0; i < ROWS; i++) fscanf(fy, "%f,", &y[i]);
+
+  fclose(fx);
+  fclose(fy);
+}
+
 
 float sigmoid(float a) { return 1.0f / (1 + exp(-a)); }
 
-int step(float a) { return (a >= 0.5) ? 1 : 0; }
+int step(float a) {
+    // if NaN, return 0 
+    if (a != a) return 0; 
+    return (a >= 0.5) ? 1 : 0; }
 
 float derivative(float a){
   return a * (1-a);
@@ -85,16 +116,8 @@ void forward(float* X, float* weights,
 
 int main(){
   srand(time(NULL));
-  
-  float X[ROWS][COLS]= {
-    {1,1},
-    {0,0},
-    {1,0}
-  };
-  
-  float y[ROWS] = {0,0,1};
-  
-  
+  int train_size = 500;
+  int val_size = ROWS - train_size;
   float H[N];  // one hidden layer
   float weights[N * COLS]; //weights of input to hidden
   // w11, w21 -> h1 | w12, w22 -> h2 | w13, w33 -> h3
@@ -125,9 +148,9 @@ int main(){
     printf("epoch°%zu :\n", e);
     
     for(int batch_start=0;
-    batch_start<ROWS;batch_start+=BATCH){
+    batch_start<train_size;batch_start+=BATCH){
       
-      int batch_end = (batch_start+BATCH>ROWS)?ROWS:batch_start+BATCH;
+      int batch_end = (batch_start+BATCH>train_size)?train_size:batch_start+BATCH;
       int batch_size = batch_end- batch_start;
       
       for (int i = 0; i < N; i++) {
@@ -158,13 +181,21 @@ int main(){
       break;
     }
   }
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+
+
+   /*
+  If training accuracy is high but validation accuracy is low : Overfitting
+  */
+  printf("\nEvaluating on validation set:\n");
+  int val_correct = 0;
+  float val_loss = 0.0f;
+  for (size_t i = train_size; i < ROWS; i++) {
+    forward((float*)X, weights, bayes, v, &b, H, pred, y, i);
+    val_loss += cross(y[i], pred[i]);
+    if ((int)y[i] == step(pred[i])) val_correct++;
+  }
+  printf("Val Loss: %.4f | Val Accuracy: %.2f%%\n", val_loss / val_size,
+         (100.0f * val_correct) / val_size);
+   
 }
