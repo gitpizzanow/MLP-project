@@ -2,11 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#define LAYERS 4
-#define EPOCHS 100
-#define Lr 0.1
+#define EPOCHS 800
+#define Lr 0.05f
 #define EPSILON 1e-7f
-#define ROWS 3
+#define ROWS 4
 #define COLS 2
 #define BATCH_SIZE 1
 
@@ -36,6 +35,9 @@ void forward(float* input, Layer* layer);
 void compute_deltas(float y, Layer** layers, int num_layers);
 void accumulate_gradients(float* input, Layer* layer);
 void apply_gradients(Layer* layer, float lr, int batch_size);
+float tanh_activation(float x);
+float tanh_derivative(float y);
+
 // ----- Activation Functions
 float sigmoid(float a) { return 1.0f / (1 + exp(-a)); }
 int step(float a) { return (a >= 0.5f) ? 1 : 0; }
@@ -45,6 +47,13 @@ float cross(float y, float Yhat) {
   Yhat = fminf(Yhat, 1.0f - EPSILON);
   return -(y * logf(Yhat) + (1 - y) * logf(1.0f - Yhat));
 }
+float tanh_activation(float x) {
+    return tanhf(x);
+}
+float tanh_derivative(float y) {
+    return 1.0f - y * y;  // y = tanh(x)
+}
+
 
 // ----- Memory Functions
 void free_layer(Layer* layer) {
@@ -97,7 +106,7 @@ void forward(float* input, Layer* layer) {
 void compute_deltas(float y, Layer** layers, int num_layers) {
   Layer* out = layers[num_layers - 1];
   float yhat = *(out->outputs);
-  *(out->deltas) = (yhat - y) * derivative(yhat);
+  *(out->deltas) = (yhat - y);
 
   for (int l = num_layers - 2; l >= 0; l--) {
     Layer* current = layers[l];  // l :layer
@@ -142,6 +151,7 @@ void train_sgd(float X[][COLS], float* y, Layer** layers, int num_layers,
                float lr) {
   for (int e = 0; e < EPOCHS; e++) {
     float loss = 0.0f;
+    int correct = 0;
 
     for (int i = 0; i < ROWS; i++) {
       float* input = X[i];
@@ -150,9 +160,13 @@ void train_sgd(float X[][COLS], float* y, Layer** layers, int num_layers,
         forward(input, layers[l]);
         input = layers[l]->outputs;
       }
-      // loss
+
       float yhat = *(layers[num_layers - 1]->outputs);
       loss += cross(y[i], yhat);
+
+      // Accuracy check
+      if (step(yhat) == (int)y[i])
+        correct++;
 
       // Backward
       compute_deltas(y[i], layers, num_layers);
@@ -168,29 +182,44 @@ void train_sgd(float X[][COLS], float* y, Layer** layers, int num_layers,
       for (int l = 0; l < num_layers; l++)
         apply_gradients(layers[l], lr, BATCH_SIZE);
     }
+
     loss /= ROWS;
-    printf("Epoch %d | Loss = %.4f\n", e, loss);
+    float accuracy = 100.0f * correct / ROWS;
+    printf("Epoch %d | Loss = %.4f | Accuracy = %.2f%%\n", e, loss, accuracy);
+
+    if (correct == ROWS) {
+      printf("Stopping at epoch %d.\n", e);
+      break;
+    }
   }
 }
 
-// ----- Main Program
+
 int main(void) {
   srand(time(NULL));
 
-  Layer hidden1 = create(COLS, 4);
-  Layer hidden2 = create(4, 4);
-  Layer hidden3 = create(4, 2);
-  Layer output = create(2, 1);
+    
+    Layer hidden1 = create(COLS, 8);       // 2 → 8
+    Layer hidden2 = create(8, 4);          // 8 → 4
+    Layer output_layer = create(4, 1);     // 4 → 1  
+    hidden1.next = &hidden2;
+    hidden2.next = &output_layer;
+    Layer* layers[] = {
+        &hidden1,
+        &hidden2,
+        &output_layer
+    };
 
-  hidden1.next = &hidden2;
-  hidden2.next = &hidden3;
-  hidden3.next = &output;
-
-  Layer* layers[LAYERS] = {&hidden1, &hidden2, &hidden3, &output};
+  int LAYERS = sizeof(layers) / sizeof(layers[0]);
   float pred[ROWS];
 
-  float X[ROWS][COLS] = {{0, 0}, {0, 1}, {1, 0}};
-  float y[] = {0, 1, 1};
+  float X[ROWS][COLS] = {
+    {0, 0},
+    {0, 1},
+    {1, 0},
+    {1, 1}
+  };
+  float y[] = {0, 1, 1, 0};
 
   train_sgd(X, y, layers, LAYERS, 0.5);
 
