@@ -9,6 +9,16 @@
 #define COLS 2
 #define BATCH_SIZE 1
 
+/*
+*
+*
+
+(x1,x2) → [ 8 ] → [ 4 ] → [ 1 ]
+           H1      H2     Out
+*
+*           
+*/
+
 typedef struct Layer {
   int input_size;
   int output_size;
