@@ -28,4 +28,8 @@ def visualize_decision_boundary(layers, X, y, forward_fn, step_fn):
     plt.xlabel("x1")
     plt.ylabel("x2")
     plt.grid(True)
+<<<<<<< HEAD
     plt.show()
+=======
+    plt.show()
+>>>>>>> aaf335260e10b546d90b63da3f6e7f48e21652dc
